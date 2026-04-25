@@ -1,4 +1,4 @@
-name: Build Jitsi Meet Android + iOS (Full)
+name: Build Jitsi Meet Android + iOS (Signed)
 
 on:
   workflow_dispatch:
@@ -14,7 +14,7 @@ jobs:
         with:
           node-version: 20
 
-      - name: Install dependencies with retry
+      - name: Install dependencies
         run: |
           npm config set registry https://registry.npmmirror.com
           npm ci || sleep 10 && npm ci || sleep 20 && npm ci
@@ -30,10 +30,19 @@ jobs:
           cd android
           ./gradlew assembleRelease --no-daemon
 
-      - name: Upload APK
+      - name: Sign APK
+        uses: r0adkll/sign-android-release@v1
+        with:
+          releaseDirectory: android/app/build/outputs/apk/release
+          signingKeyBase64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+          alias: ${{ secrets.RELEASE_KEY_ALIAS }}
+          keyStorePassword: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          keyPassword: ${{ secrets.RELEASE_KEY_PASSWORD }}
+
+      - name: Upload Signed APK
         uses: actions/upload-artifact@v4
         with:
-          name: android-apk
+          name: jitsi-meet-android-signed
           path: android/app/build/outputs/apk/release/*.apk
 
   build-ios:
@@ -46,7 +55,7 @@ jobs:
         with:
           node-version: 20
 
-      - name: Install dependencies with retry
+      - name: Install dependencies
         run: |
           npm config set registry https://registry.npmmirror.com
           npm ci || sleep 10 && npm ci || sleep 20 && npm ci
@@ -56,7 +65,7 @@ jobs:
           cd ios
           pod install
 
-      - name: Build iOS
+      - name: Build iOS App
         run: |
           cd ios
           xcodebuild build -workspace jitsi-meet.xcworkspace \
