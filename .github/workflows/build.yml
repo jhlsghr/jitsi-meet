@@ -1,4 +1,4 @@
-name: Build Jitsi Meet Android + iOS (Signed)
+name: Build Jitsi Meet Android + iOS (Fixed Sign)
 
 on:
   workflow_dispatch:
@@ -14,7 +14,7 @@ jobs:
         with:
           node-version: 20
 
-      - name: Install dependencies
+      - name: Install dependencies (国内镜像+重试)
         run: |
           npm config set registry https://registry.npmmirror.com
           npm ci || sleep 10 && npm ci || sleep 20 && npm ci
@@ -25,25 +25,35 @@ jobs:
           java-version: 17
           distribution: temurin
 
-      - name: Build Android
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          api-level: 33
+          build-tools: 33.0.2
+          ndk: 25.2.9519653
+
+      - name: Build Android APK
         run: |
           cd android
           ./gradlew assembleRelease --no-daemon
 
-      - name: Sign APK
-        uses: r0adkll/sign-android-release@v1
-        with:
-          releaseDirectory: android/app/build/outputs/apk/release
-          signingKeyBase64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
-          alias: ${{ secrets.RELEASE_KEY_ALIAS }}
-          keyStorePassword: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
-          keyPassword: ${{ secrets.RELEASE_KEY_PASSWORD }}
+      # 关键：直接用 apksigner 签名，避开 build-tools 问题
+      - name: Sign APK with apksigner
+        run: |
+          echo "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" | base64 -d > my-release-key.jks
+          apksigner sign \
+            --ks my-release-key.jks \
+            --ks-key-alias ${{ secrets.RELEASE_KEY_ALIAS }} \
+            --ks-pass pass:${{ secrets.RELEASE_KEYSTORE_PASSWORD }} \
+            --key-pass pass:${{ secrets.RELEASE_KEY_PASSWORD }} \
+            --out android/app/build/outputs/apk/release/app-release-signed.apk \
+            android/app/build/outputs/apk/release/app-release-unsigned.apk
 
       - name: Upload Signed APK
         uses: actions/upload-artifact@v4
         with:
           name: jitsi-meet-android-signed
-          path: android/app/build/outputs/apk/release/*.apk
+          path: android/app/build/outputs/apk/release/app-release-signed.apk
 
   build-ios:
     runs-on: macos-15
