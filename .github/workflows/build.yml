@@ -1,4 +1,4 @@
-name: Build Jitsi Meet Android + iOS (Fixed Sign)
+name: Build Jitsi Meet Android + iOS (Final Fixed)
 
 on:
   workflow_dispatch:
@@ -37,11 +37,11 @@ jobs:
           cd android
           ./gradlew assembleRelease --no-daemon
 
-      # 关键：直接用 apksigner 签名，避开 build-tools 问题
-      - name: Sign APK with apksigner
+      - name: Sign APK with apksigner (full path)
         run: |
           echo "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" | base64 -d > my-release-key.jks
-          apksigner sign \
+          # 使用完整路径调用 apksigner
+          $ANDROID_HOME/build-tools/33.0.2/apksigner sign \
             --ks my-release-key.jks \
             --ks-key-alias ${{ secrets.RELEASE_KEY_ALIAS }} \
             --ks-pass pass:${{ secrets.RELEASE_KEYSTORE_PASSWORD }} \
