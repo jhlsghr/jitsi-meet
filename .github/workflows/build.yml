@@ -38,44 +38,41 @@ jobs:
           path: android/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
 
-  build-ios:
-    runs-on: macos-14
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+build-ios:
+  runs-on: macos-15  # 换成 macOS 15，自带 Xcode 16
+  steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
 
-      - name: Set up Node.js 20
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'npm'
+    - name: Set up Node.js 20
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20
+        cache: 'npm'
 
-      - name: Install dependencies
-        run: npm ci
+    - name: Install dependencies
+      run: npm ci
 
-      - name: Select Xcode version
-        run: sudo xcode-select -s /Applications/Xcode_16.0.app/Contents/Developer
+    - name: Install CocoaPods
+      run: |
+        cd ios
+        pod deintegrate || true
+        pod install --clean-install
 
-      - name: Install CocoaPods
-        run: |
-          cd ios
-          pod deintegrate || true
-          pod install --clean-install
+    - name: Build iOS App
+      run: |
+        cd ios
+        xcodebuild \
+          -workspace jitsi-meet.xcworkspace \
+          -scheme JitsiMeet \
+          -configuration Release \
+          -destination 'generic/platform=iOS' \
+          -derivedDataPath ../build \
+          build CODE_SIGNING_ALLOWED=NO
 
-      - name: Build iOS App
-        run: |
-          cd ios
-          xcodebuild \
-            -workspace jitsi-meet.xcworkspace \
-            -scheme JitsiMeet \
-            -configuration Release \
-            -destination 'generic/platform=iOS' \
-            -derivedDataPath ../build \
-            build CODE_SIGNING_ALLOWED=NO
-
-      - name: Upload iOS App
-        uses: actions/upload-artifact@v4
-        with:
-          name: jitsi-meet-ios-app
-          path: build/Build/Products/Release-iphoneos/*.app
-          if-no-files-found: error
+    - name: Upload iOS App
+      uses: actions/upload-artifact@v4
+      with:
+        name: jitsi-meet-ios-app
+        path: build/Build/Products/Release-iphoneos/*.app
+        if-no-files-found: error
